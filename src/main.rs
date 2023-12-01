@@ -13,10 +13,11 @@ use url::Url;
 //   yields "invalid_request" error.
 //   What was went wrong?
 fn profile0(data: Data<AppState>) -> impl Responder {
+    let exposed_host = &data.get_ref().host_and_scheme;
     HttpResponseBuilder::new(StatusCode::NO_CONTENT)
-        .insert_header(("Link", format!("<{EXPOSED_HOST}/metadata>; rel=\"indieauth-metadata\",\
-        <{EXPOSED_HOST}/authorize/>; rel=\"redirect_uri\",\
-        <{EXPOSED_HOST}/authorize>; rel=\"redirect_uri\"")))
+        .insert_header(("Link", format!("<{exposed_host}/metadata>; rel=\"indieauth-metadata\",\
+        <{exposed_host}/authorize/>; rel=\"redirect_uri\",\
+        <{exposed_host}/authorize>; rel=\"redirect_uri\"")))
         .finish()
 }
 
@@ -41,11 +42,12 @@ struct IndieAuthServerMetadata {
 
 #[get("/metadata")]
 async fn metadata(data: Data<AppState>) -> impl Responder {
+    let exposed_host = &data.get_ref().host_and_scheme;
     let res = IndieAuthServerMetadata {
-        issuer: Url::parse(EXPOSED_HOST).expect("failed to parse URL"),
-        authorization_endpoint: Url::parse(&format!("{EXPOSED_HOST}/authorize/")).expect("failed to parse authorize endpoint as a URL"),
-        token_endpoint: Url::parse(&format!("{EXPOSED_HOST}/token/")).expect("failed to parse token exchange endpoint as a URL"),
-        introspection_endpoint: Url::parse(&format!("{EXPOSED_HOST}/introspection/")).expect("failed to parse introspection endpoint as a URL"),
+        issuer: Url::parse(&exposed_host).expect("failed to parse URL"),
+        authorization_endpoint: Url::parse(&format!("{exposed_host}/authorize/")).expect("failed to parse authorize endpoint as a URL"),
+        token_endpoint: Url::parse(&format!("{exposed_host}/token/")).expect("failed to parse token exchange endpoint as a URL"),
+        introspection_endpoint: Url::parse(&format!("{exposed_host}/introspection/")).expect("failed to parse introspection endpoint as a URL"),
         code_challenge_methods_supported: vec!["S256".to_string()]
     };
 
@@ -101,7 +103,7 @@ async fn main() {
             .chain(std::io::stdout())
     ).apply().expect("failed to initialize logger");
 
-    HttpServer::new(|| App::new()
+    HttpServer::new(move || App::new()
         .app_data(actix_web::web::Data::new(AppState {
             host_and_scheme: format!("https://{host}")
         }))
